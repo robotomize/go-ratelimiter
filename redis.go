@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	redis "github.com/go-redis/redis/v8"
+	"github.com/go-redis/redis/v8"
 )
 
 const (
@@ -50,6 +50,16 @@ type RedisClient interface {
 	Expire(ctx context.Context, key string, expiration time.Duration) *redis.BoolCmd
 	TxPipeline() redis.Pipeliner
 	SMembers(ctx context.Context, key string) *redis.StringSliceCmd
+}
+
+// DefaultRedisStore return Store instance of default redis options
+func DefaultRedisStore(ctx context.Context, addr string, interval time.Duration, points uint64) (Store, error) {
+	r := redis.NewClient(&redis.Options{Addr: addr})
+	if err := r.Ping(ctx).Err(); err != nil {
+		return nil, fmt.Errorf("redis client ping: %w", err)
+	}
+
+	return NewRedisStore(r, RedisConfig{Interval: interval, Points: points}), nil
 }
 
 // NewRedisStore make redis store
@@ -127,7 +137,7 @@ func (r redisStore) TakeExcl(ctx context.Context, key string, f ExclFunc) (limit
 func (r redisStore) take(ctx context.Context, key string) (limit, remaining, resetTimeUint uint64, ok bool, err error) {
 	prefixedKey := fmt.Sprintf("%s%s", r.prefix, key)
 
-	//Trying to get points from the current key
+	// Trying to get points from the current key
 	vals, err := r.client.HMGet(ctx, prefixedKey, redisMaxPointsFieldName, redisActualPointsFieldName, redisResetTimeFieldName).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {

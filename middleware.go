@@ -100,6 +100,13 @@ func LimiterMiddleware(s Store, keyFunc KeyFunc, opts ...Option) func(next http.
 				}
 			}
 
+			if keyFunc == nil {
+				// if key func is nil return 500 Internal Server Error
+				w.WriteHeader(http.StatusInternalServerError)
+
+				return
+			}
+
 			// extract entity
 			key, err := keyFunc(r)
 			if err != nil {
